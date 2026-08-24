@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FireCrawlApp – Preis-Monitoring</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">📈</span>
+      <div>
+        <h1>FireCrawlApp</h1>
+        <p class="subtitle">Preis-Monitoring via Firecrawl / Tavily</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="badges" id="provider-badges"></div>
+      <div class="next-run" id="next-run"></div>
+    </div>
+  </header>
+
+  <section class="add-bar">
+    <form id="add-form">
+      <input type="url" id="add-url" placeholder="Produkt-URL einfügen (z.B. https://www.bauhaus.info/...)" required>
+      <input type="text" id="add-name" placeholder="Name (optional)">
+      <button type="submit" class="btn primary">+ Hinzufügen &amp; prüfen</button>
+    </form>
+    <button id="check-all-btn" class="btn">⟳ Alle prüfen</button>
+  </section>
+
+  <section class="stats-row" id="stats-row"></section>
+
+  <main class="grid">
+    <section class="panel products-panel">
+      <h2>Produkte</h2>
+      <div class="table-wrap">
+        <table id="products-table">
+          <thead>
+            <tr>
+              <th>Produkt</th>
+              <th>Shop</th>
+              <th class="num">Aktueller Preis</th>
+              <th class="num">Δ</th>
+              <th>30 Tage</th>
+              <th>Geprüft</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="products-body">
+            <tr><td colspan="7" class="empty">Lade…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="panel events-panel">
+      <h2>Ereignisse &amp; Alerts</h2>
+      <ul id="events-list"><li class="empty">Lade…</li></ul>
+    </aside>
+  </main>
+
+  <footer>
+    <span id="demo-hint"></span>
+  </footer>
+
+  <dialog id="detail-modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="detail-title"></h3>
+        <a id="detail-url" href="#" target="_blank" rel="noopener"></a>
+      </div>
+      <button class="btn icon" id="detail-close">✕</button>
+    </div>
+    <div class="detail-stats" id="detail-stats"></div>
+    <div class="chart-wrap"><canvas id="detail-chart"></canvas></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="detail-check">⟳ Jetzt prüfen</button>
+    </div>
+  </dialog>
+
+  <div id="toast-container"></div>
+
+  <script src="/vendor/chart.umd.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

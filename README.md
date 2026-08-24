@@ -1,0 +1,142 @@
+# 📈 FireCrawlApp
+
+Preis-Monitoring-Dashboard für Produktseiten, die normale Scraper blockieren
+(JS-Rendering, Bot-Schutz). Läuft als **LXC-Container auf Proxmox VE**, installierbar mit
+**einem Einzeiler** im Stil der [Proxmox VE Community Scripts](https://community-scripts.github.io/ProxmoxVE).
+
+- **Extraktion:** Firecrawl-API (Browser-Rendering + strukturiertes Extraction-Schema),
+  Tavily-Extract-API als Fallback mit deutschem Preis-Parser (`701,00 €`, `€ 1.299,99`, `89,- €`, UVP-„Statt“-Fall)
+- **Stack:** Python/FastAPI + SQLite + Chart.js (keine externen Dienste nötig; API-Keys optional → Demo-Modus)
+- **Reboot-sicher:** systemd-Unit (`Restart=always`, `After=network-online.target`), CT mit `onboot: 1`
+
+## 🚀 Installation (Einzeiler auf dem Proxmox-Host)
+
+```bash
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/FireCrawlApp-Proxmox/main/install/firecrawlapp.sh)"
+```
+
+Das Script:
+
+1. erstellt einen **unprivilegierten Debian-12-LXC** (2 vCPU / 1024 MB RAM / 6 GB Disk, DHCP, `onboot=1`)
+2. lädt den App-Code aus diesem Repo und installiert Python-venv + Dependencies
+3. richtet den systemd-Service `firecrawlapp` ein (bindet an `0.0.0.0:8000`)
+4. **verifiziert sich selbst**: `systemctl is-active` + HTTP-Check auf `localhost:8000`
+5. gibt die finale URL mit Container-IP aus
+
+Erwartete Ausgabe (Auszug):
+
+```
+✅ Container 150 erstellt (onboot=1, unprivilegiert)
+✅ Container-IP: 192.168.1.50
+⏳ Installiere FireCrawlApp im Container (Python, venv, systemd) – einige Minuten
+✅ Installation im Container abgeschlossen
+✅ Service: active | WebUI: HTTP 200
+✅ FireCrawlApp erfolgreich installiert (Modus: install)!
+  WebUI : http://192.168.1.50:8000
+```
+
+### Optionale Umgebungsvariablen
+
+| Variable | Default | Bedeutung |
+|---|---|---|
+| `CTID` | nächste freie | Container-ID |
+| `PORT` | `8000` | WebUI-Port |
+| `CORE_COUNT` / `RAM_SIZE` / `DISK_SIZE` | `2` / `1024` / `6` | Ressourcen |
+| `STORAGE` / `TEMPLATE_STORAGE` | `local-lvm` / `local` | Storages |
+| `BRG` / `NET_IP` / `NET_GW` | `vmbr0` / `dhcp` | Netzwerk |
+| `FORCE=1` | – | Bestätigungsfrage überspringen |
+
+Beispiel: `CTID=150 PORT=8080 bash -c "$(wget -qLO - ...)"`
+
+### Idempotenz
+
+Der Einzeiler kann beliebig oft erneut ausgeführt werden:
+
+- CT existiert bereits **und gehört zu FireCrawlApp** → **Update-Modus**
+  (Code neu aus dem Repo, `pip install`, `.env` und SQLite-Datenbank bleiben erhalten)
+- CT existiert und gehört zu **einem anderen Projekt** → Installer weicht automatisch
+  auf die nächste freie CT-ID aus
+
+## 🔧 Konfiguration
+
+Im Container: `/opt/firecrawlapp/.env`
+
+```ini
+FIRECRAWL_API_KEY=fc-...        # https://firecrawl.dev
+TAVILY_API_KEY=tvly-...         # https://tavily.com (optional, Fallback)
+CHECK_SCHEDULE=08:00            # tägliche Prüfzeit
+DEMO_MODE=auto                  # auto|on|off (auto = Demo ohne Keys)
+```
+
+Danach: `systemctl restart firecrawlapp`. **Ohne Keys läuft der Demo-Modus** mit simulierten Preisen.
+
+## 🔄 Update & Deinstallation
+
+```bash
+# Update Option 1: Einzeiler erneut ausführen (erkennt bestehende Installation)
+# Update Option 2 (im Container):
+pct exec <CTID> -- update-firecrawlapp
+
+# Deinstallation:
+pct stop <CTID> && pct destroy <CTID>
+```
+
+## 🐞 Debugging
+
+Bei Fehlern gibt das Install-Script die **komplette Fehlerkette** aus
+(fehlgeschlagener Schritt, Exit-Code, Log-Auszüge). Vollständiger Trace:
+
+```bash
+DEBUG=1 bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/FireCrawlApp-Proxmox/main/install/firecrawlapp.sh)"
+# Trace landet in /tmp/firecrawlapp-install.log.trace bzw. .log
+```
+
+Logs im Container:
+
+```bash
+pct exec <CTID> -- journalctl -u firecrawlapp -n 100 --no-pager   # Service-Log
+pct exec <CTID> -- cat /tmp/firecrawlapp-install.log              # Installer-Log
+```
+
+## ✅ Testdurchlauf (Protokoll)
+
+Auf einem Proxmox-Host mit mindestens freier CT-ID:
+
+```bash
+# 1) Installation
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/FireCrawlApp-Proxmox/main/install/firecrawlapp.sh)"
+# → endet mit "WebUI : http://<IP>:8000", Verifikation "Service: active | WebUI: HTTP 200"
+
+# 2) Reboot des LXC
+pct reboot <CTID>
+
+# 3) Web UI nach Reboot wieder erreichbar?
+sleep 20 && curl -s http://<IP>:8000/api/status    # → {"firecrawl":...,"demo":true,...}
+pct exec <CTID> -- systemctl is-active firecrawlapp  # → active
+```
+
+Zusätzlich lokal verifiziert (CI-fähig, ohne Proxmox): `bash -n`, `shellcheck` (0 Warnungen),
+kompletter Host-Flow gegen gemockte `pct/pveam/pvesh`-Binaries in allen drei Zweigen
+(Neuinstallation / Update / ID-Ausweich), Container-Installer halb-reAL mit echtem
+venv+pip inklusive Idempotenz-Nachweis (`.env` bleibt bei Re-Run erhalten).
+
+## 🖥️ Lokale Entwicklung (ohne Proxmox)
+
+```bash
+./run.sh        # erstellt .venv, startet auf http://0.0.0.0:8000
+```
+
+## API (kurz)
+
+| Endpoint | Beschreibung |
+|---|---|
+| `GET /api/products` | Produkte inkl. Historie/Änderung |
+| `POST /api/products` | `{url, name?}` – legt an & prüft sofort |
+| `POST /api/products/{id}/check` · `POST /api/check-all` | Prüfung starten |
+| `GET /api/products/{id}/history?days=30` | Preis-Historie |
+| `GET /api/events` · `GET /api/status` | Alerts / Provider-Status |
+
+## ⚖️ Nutzungsbedingungen
+
+Automatisierte Preisabfragen sind Scraping – Rate Limits respektieren und die
+Nutzungsbedingungen der jeweiligen Shops beachten.
