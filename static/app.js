@@ -145,14 +145,14 @@ function renderProducts(products) {
       const name = p.name || p.url;
       const ih = p.interval_hours || 24;
       return `<tr data-id="${p.id}">
-        <td class="pname" title="${p.url}${p.note ? "\n\n📝 " + p.note.replace(/"/g, "&quot;") : ""}"><a href="${p.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${name}</a><span class="src-tag">${p.last_source || "?"}</span>${p.note ? `<div class="pnote">📝 ${p.note}</div>` : ""}</td>
-        <td class="muted">${p.retailer || "–"}</td>
-        <td class="num"><span class="price">${p.last_price != null ? fmtEUR.format(p.last_price) : "–"}</span>${availHtml(p.last_availability) !== "<span class=\"muted\">–</span>" ? "<br>" + availHtml(p.last_availability) : ""}</td>
-        <td class="num">${changeHtml(p.change_abs, p.change_pct)}</td>
-        <td>${sparkline(p.sparkline)}</td>
-        <td onclick="event.stopPropagation()"><select class="interval-select" onchange="setIntervalHours(event, ${p.id}, this)" title="Nächste geplante Prüfung: ${fmtTime(p.next_check_at)}">${intervalSelectHtml(ih)}</select></td>
-        <td class="muted">${fmtTime(p.last_checked)}</td>
-        <td class="row-actions">
+        <td class="pname no-label" title="${p.url}${p.note ? "\n\n📝 " + p.note.replace(/"/g, "&quot;") : ""}"><a href="${p.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${name}</a><span class="src-tag">${p.last_source || "?"}</span>${p.note ? `<div class="pnote">📝 ${p.note}</div>` : ""}</td>
+        <td data-label="Shop" class="muted">${p.retailer || "–"}</td>
+        <td data-label="Preis" class="num"><span class="price">${p.last_price != null ? fmtEUR.format(p.last_price) : "–"}</span>${availHtml(p.last_availability) !== "<span class=\"muted\">–</span>" ? "<br>" + availHtml(p.last_availability) : ""}</td>
+        <td data-label="Änderung" class="num">${changeHtml(p.change_abs, p.change_pct)}</td>
+        <td data-label="Verlauf">${sparkline(p.sparkline)}</td>
+        <td data-label="Intervall" onclick="event.stopPropagation()"><select class="interval-select" onchange="setIntervalHours(event, ${p.id}, this)" title="Nächste geplante Prüfung: ${fmtTime(p.next_check_at)}">${intervalSelectHtml(ih)}</select></td>
+        <td data-label="Geprüft" class="muted">${fmtTime(p.last_checked)}</td>
+        <td data-label="Aktionen" class="row-actions">
           <button class="btn" onclick="checkProduct(event, ${p.id})" title="Jetzt prüfen">⟳</button>
           <button class="btn danger" onclick="deleteProduct(event, ${p.id}, '${name.replace(/'/g, "\\'")}')" title="Löschen">🗑</button>
         </td>
@@ -440,3 +440,14 @@ document.getElementById("detail-check").addEventListener("click", async () => {
 
 refreshAll();
 setInterval(refreshAll, 30000);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get("action") === "check-all") {
+  document.getElementById("check-all-btn").click();
+}

@@ -152,6 +152,18 @@ venv+pip inklusive Idempotenz-Nachweis (`.env` bleibt bei Re-Run erhalten).
   wird es beim erneuten Hinzufügen automatisch zurückgesetzt und frisch geprüft. Bei einem
   aktiven Produkt fragt das Dashboard „Historie zurücksetzen & neu prüfen?“ an.
 
+### 📱 PWA / Mobil
+
+FireCrawlApp ist eine installierbare **Progressive Web App**:
+
+- Am Handy: Seite öffnen → „Zum Startbildschirm hinzufügen“ (Chrome/Android: automatisch als
+  Installations-Vorschlag) → läuft danach wie eine native App im Vollbild (eigenes Icon, keine Adressleiste)
+- **Service Worker** cached App-Shell & letzte Produktdaten → Dashboard öffnet sich auch bei
+  kurzen Netz-Ausfällen sofort; API-Daten bleiben immer network-first
+- Mobile Optimierung: Produktliste wird auf schmalen Displays zu Karten, große Touch-Targets,
+  Safe-Area-Support für Notch-Displays
+- Nach App-Updates einmal pull-to-refresh bzw. neu laden (Cache-Version steht in `static/sw.js`)
+
 ## 🖥️ Lokale Entwicklung (ohne Proxmox)
 
 ```bash

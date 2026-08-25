@@ -206,3 +206,57 @@ dialog::backdrop { background: rgba(0,0,0,.65); }
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px 8px; font-size: 12px; margin-left: 6px;
 }
+
+@media (max-width: 720px) {
+  body {
+    padding: 12px 10px calc(16px + env(safe-area-inset-bottom));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    font-size: 13.5px;
+  }
+  h1 { font-size: 18px; }
+  .logo { font-size: 26px; }
+  header { margin-bottom: 14px; gap: 10px; }
+  .header-right { align-items: flex-start; width: 100%; }
+  .add-bar { flex-direction: column; }
+  #add-form { flex-direction: column; }
+  #add-form input, #add-form button, .add-bar > button { width: 100%; min-height: 44px; }
+  .demo-banner { flex-direction: column; align-items: stretch; text-align: left; }
+  .demo-actions { flex-direction: column; }
+  .demo-actions .btn, .settings-actions .btn { min-height: 42px; }
+
+  .grid { grid-template-columns: 1fr; gap: 12px; }
+  .panel { padding: 12px; }
+  .events-panel ul { max-height: 300px; }
+
+  .table-wrap { overflow-x: visible; }
+  #products-table thead { display: none; }
+  #products-table, #products-table tbody, #products-table tr, #products-table td {
+    display: block; width: 100%;
+  }
+  #products-table tbody tr {
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 10px; padding: 10px 12px; background: rgba(45,51,59,.25);
+  }
+  #products-table td {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; border-bottom: none; padding: 7px 2px; text-align: right;
+  }
+  #products-table td::before {
+    content: attr(data-label); color: var(--muted); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .4px; text-align: left; flex-shrink: 0;
+  }
+  #products-table td.no-label::before { display: none; }
+  #products-table td.no-label { padding-top: 0; white-space: normal; }
+  .pname { max-width: none; white-space: normal; overflow: visible; }
+  .pnote { white-space: normal; }
+  #products-table td.row-actions { justify-content: flex-end; padding-bottom: 0; }
+  .interval-select { font-size: 13px; min-height: 34px; }
+  .row-actions .btn { min-width: 40px; min-height: 36px; }
+
+  dialog { padding: 14px; width: 96vw; max-height: 92dvh; overflow-y: auto; }
+  .detail-stats { gap: 14px; }
+  .chart-wrap { height: 220px; }
+  .settings-grid { grid-template-columns: 1fr; }
+  .modal-head h3 { font-size: 15px; }
+}
