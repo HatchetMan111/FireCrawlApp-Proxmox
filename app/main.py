@@ -39,6 +39,7 @@ class ProductUpdate(BaseModel):
     name: str | None = None
     active: bool | None = None
     interval_hours: int | None = None
+    note: str | None = None
 
 
 def _clamp_interval(hours: int | None) -> int | None:
@@ -149,13 +150,19 @@ async def add_product(body: ProductCreate):
         raise HTTPException(status_code=400, detail="Bitte eine gültige Produkt-URL angeben")
     existing = db.get_product_by_url(url)
     if existing:
-        if existing["last_source"] != "demo":
-            raise HTTPException(status_code=409, detail="URL wird bereits getrackt")
+        if existing["last_source"] != "demo" and existing["last_price"] is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "URL wird bereits getrackt",
+                    "product_id": existing["id"],
+                },
+            )
         db.reset_product(existing["id"], body.name.strip())
         db.delete_history(existing["id"])
         product = db.get_product(existing["id"])
         _spawn(check_product(product))
-        return {"replaced_demo": True, **_product_payload(product)}
+        return {"replaced_existing": True, **_product_payload(product)}
     pid = db.create_product(url, body.name.strip(), retailer_from_url(url))
     interval = _clamp_interval(body.interval_hours)
     if interval is not None:
@@ -169,13 +176,31 @@ async def add_product(body: ProductCreate):
 def patch_product(pid: int, body: ProductUpdate):
     if not db.get_product(pid):
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
+    note = body.note[:2000] if body.note is not None else None
     db.update_product(
         pid,
         name=body.name,
         active=body.active,
         interval_hours=_clamp_interval(body.interval_hours),
+        note=note,
     )
     return _product_payload(db.get_product(pid))
+
+
+@app.post("/api/products/{pid}/reset")
+async def reset_product(pid: int):
+    product = db.get_product(pid)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
+    db.delete_history(pid)
+    db.reset_product(pid, product["name"])
+    db.add_event(pid, "info", f"🔄 {product['name'] or product['url']}: zurückgesetzt, neue Prüfung läuft …")
+
+    async def run():
+        await check_product(db.get_product(pid))
+
+    _spawn(run())
+    return {"reset": True}
 
 
 @app.delete("/api/products/{pid}")

@@ -138,6 +138,20 @@ kompletter Host-Flow gegen gemockte `pct/pveam/pvesh`-Binaries in allen drei Zwe
 (Neuinstallation / Update / ID-Ausweich), Container-Installer halb-reAL mit echtem
 venv+pip inklusive Idempotenz-Nachweis (`.env` bleibt bei Re-Run erhalten).
 
+### Notizen & Feedback
+
+- **📝 Notiz pro Produkt** (Detail-Dialog): z.B. „Preis gilt pro Palette, nicht pro m²“ —
+  erscheint unter dem Produktnamen in der Tabelle.
+- **Ereignis-Log mit Ergebnis-Feedback:** jeder Check erzeugt einen Eintrag —
+  🟢/🔴 bei Preisänderung, ✅ bei unverändertem/erstem Preis. So ist immer sichtbar,
+  ob eine Prüfung erfolgreich war.
+- **Fehlgeschlagene Checks** (z.B. „no price found“) enthalten einen Tipp, einen zweiten
+  Provider (Firecrawl/Tavily) als Fallback zu hinterlegen; die Extraktion versteht deutsche
+  Preisformate und ignoriert UVP-/„Statt“-Preise.
+- **URL schon vorhanden?** Kein Blocker mehr: Hat das Produkt noch nie einen Preis geliefert,
+  wird es beim erneuten Hinzufügen automatisch zurückgesetzt und frisch geprüft. Bei einem
+  aktiven Produkt fragt das Dashboard „Historie zurücksetzen & neu prüfen?“ an.
+
 ## 🖥️ Lokale Entwicklung (ohne Proxmox)
 
 ```bash

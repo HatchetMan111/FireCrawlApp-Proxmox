@@ -19,6 +19,11 @@ async function api(path, opts = {}) {
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch (e) { /* ignore */ }
+    if (typeof detail === "object" && detail !== null) {
+      const e = new Error(detail.message || JSON.stringify(detail));
+      e.payload = detail;
+      throw e;
+    }
     throw new Error(detail);
   }
   return res.json();
@@ -140,7 +145,7 @@ function renderProducts(products) {
       const name = p.name || p.url;
       const ih = p.interval_hours || 24;
       return `<tr data-id="${p.id}">
-        <td class="pname" title="${p.url}"><a href="${p.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${name}</a><span class="src-tag">${p.last_source || "?"}</span></td>
+        <td class="pname" title="${p.url}${p.note ? "\n\n📝 " + p.note.replace(/"/g, "&quot;") : ""}"><a href="${p.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${name}</a><span class="src-tag">${p.last_source || "?"}</span>${p.note ? `<div class="pnote">📝 ${p.note}</div>` : ""}</td>
         <td class="muted">${p.retailer || "–"}</td>
         <td class="num"><span class="price">${p.last_price != null ? fmtEUR.format(p.last_price) : "–"}</span>${availHtml(p.last_availability) !== "<span class=\"muted\">–</span>" ? "<br>" + availHtml(p.last_availability) : ""}</td>
         <td class="num">${changeHtml(p.change_abs, p.change_pct)}</td>
@@ -167,7 +172,7 @@ function renderEvents(events) {
     ul.innerHTML = '<li class="empty">Keine Ereignisse.</li>';
     return;
   }
-  const cls = { price_drop: "ev-drop", price_rise: "ev-rise", error: "ev-error", info: "ev-info" };
+  const cls = { price_drop: "ev-drop", price_rise: "ev-rise", error: "ev-error", info: "ev-info", success: "ev-success" };
   ul.innerHTML = events
     .map((e) => `<li class="${cls[e.type] || ""}">${e.message}<span class="when">${fmtTime(e.created_at)}</span></li>`)
     .join("");
@@ -237,8 +242,8 @@ document.getElementById("add-form").addEventListener("submit", async (ev) => {
       body: JSON.stringify({ url, name: nameEl.value.trim() }),
     });
     toast(
-      res.replaced_demo
-        ? "Demo-Eintrag übernommen – erste echte Prüfung läuft …"
+      res.replaced_existing
+        ? "Bestehenden Eintrag zurückgesetzt – neue Prüfung läuft …"
         : "Produkt hinzugefügt – erste Prüfung läuft …",
       "success"
     );
@@ -248,6 +253,20 @@ document.getElementById("add-form").addEventListener("submit", async (ev) => {
     setTimeout(refreshAll, 4000);
     setTimeout(refreshAll, 15000);
   } catch (err) {
+    if (err.payload && err.payload.product_id && confirm("URL wird bereits getrackt. Historie zurücksetzen und neu prüfen?")) {
+      try {
+        await api(`/api/products/${err.payload.product_id}/reset`, { method: "POST" });
+        toast("Produkt zurückgesetzt – Prüfung läuft …", "success");
+        urlEl.value = "";
+        nameEl.value = "";
+        refreshAll();
+        setTimeout(refreshAll, 6000);
+        return;
+      } catch (err2) {
+        toast(`Fehler: ${err2.message}`, "error");
+        return;
+      }
+    }
     toast(`Fehler: ${err.message}`, "error");
   }
 });
@@ -352,6 +371,7 @@ async function openDetail(id) {
     .map(([l, v]) => `<div><span>${l}</span><b>${v}</b></div>`)
     .join("");
   document.getElementById("detail-interval").innerHTML = intervalSelectHtml(p.interval_hours || 24);
+  document.getElementById("detail-note").value = p.note || "";
 
   const ctx = document.getElementById("detail-chart");
   if (detailChart) detailChart.destroy();
@@ -384,6 +404,20 @@ async function openDetail(id) {
   });
   document.getElementById("detail-modal").showModal();
 }
+
+document.getElementById("note-save").addEventListener("click", async () => {
+  if (!currentDetailId) return;
+  try {
+    await api(`/api/products/${currentDetailId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ note: document.getElementById("detail-note").value }),
+    });
+    toast("Notiz gespeichert.", "success");
+    refreshAll();
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+});
 
 document.getElementById("products-body").addEventListener("click", (ev) => {
   const row = ev.target.closest("tr[data-id]");

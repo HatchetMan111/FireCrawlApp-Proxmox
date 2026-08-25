@@ -121,6 +121,11 @@
     </div>
     <div class="detail-stats" id="detail-stats"></div>
     <div class="chart-wrap"><canvas id="detail-chart"></canvas></div>
+    <div class="note-wrap">
+      <label for="detail-note">📝 Notiz <span class="muted">(z.B. „Preis gilt pro Palette, nicht pro m²")</span></label>
+      <textarea id="detail-note" rows="2" maxlength="2000" placeholder="Notiz zu diesem Produkt …"></textarea>
+      <button class="btn" id="note-save">💾 Notiz speichern</button>
+    </div>
     <div class="modal-actions">
       <label class="detail-interval-label">Prüfintervall:
         <select id="detail-interval" onchange="saveDetailInterval(this.value)"></select>

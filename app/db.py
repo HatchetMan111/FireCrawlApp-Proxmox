@@ -70,6 +70,8 @@ def init_db() -> None:
             db.execute(
                 "ALTER TABLE products ADD COLUMN interval_hours INTEGER NOT NULL DEFAULT 24"
             )
+        if "note" not in cols:
+            db.execute("ALTER TABLE products ADD COLUMN note TEXT NOT NULL DEFAULT ''")
 
 
 def list_products() -> list[dict]:
@@ -99,7 +101,7 @@ def create_product(url: str, name: str = "", retailer: str = "") -> int:
 
 
 def update_product(pid: int, **fields) -> None:
-    allowed = {"name", "active", "interval_hours"}
+    allowed = {"name", "active", "interval_hours", "note"}
     keys = [k for k in fields if k in allowed and fields[k] is not None]
     if not keys:
         return

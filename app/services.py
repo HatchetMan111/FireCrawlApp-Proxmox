@@ -82,19 +82,32 @@ async def check_product(product: dict) -> dict:
         db.update_after_check(product["id"], res.price, currency, res.availability, res.source)
         if not product["name"] and res.product_name:
             db.update_product(product["id"], name=res.product_name[:200])
+            product = {**product, "name": res.product_name[:200]}
+        name = product["name"] or product["url"]
         if prev and prev["price"]:
             diff = round(res.price - prev["price"], 2)
             if abs(diff) >= 0.01:
                 pct = round(diff / prev["price"] * 100, 1)
                 etype = "price_drop" if diff < 0 else "price_rise"
                 arrow = "\U0001F7E9" if diff < 0 else "\U0001F534"
-                name = product["name"] or product["url"]
                 db.add_event(
                     product["id"],
                     etype,
                     f"{arrow} {name}: {prev['price']:.2f} \u2192 {res.price:.2f} "
                     f"({diff:+.2f} / {pct:+.1f}%)",
                 )
+            elif db.get_setting("log_success_events", "1") != "0":
+                db.add_event(
+                    product["id"],
+                    "success",
+                    f"\u2705 {name}: unver\u00e4ndert {res.price:.2f} {currency} ({res.source})",
+                )
+        else:
+            db.add_event(
+                product["id"],
+                "success",
+                f"\u2705 {name}: erster Preis {res.price:.2f} {currency} ({res.source})",
+            )
         return {
             "ok": True,
             "price": res.price,
@@ -102,12 +115,17 @@ async def check_product(product: dict) -> dict:
             "source": res.source,
             "previous": prev["price"] if prev else None,
         }
+    tip = (
+        " \u2013 Tipp: zweiten Provider (Firecrawl/Tavily) als Fallback hinterlegen"
+        if not (firecrawl_key() and tavily_key())
+        else ""
+    )
     db.insert_history(product["id"], None, "", "", res.source, res.error)
     db.mark_checked(product["id"])
     db.add_event(
         product["id"],
         "error",
-        f"\u26A0\uFE0F {product['name'] or product['url']}: {res.error[:300]}",
+        f"\u26A0\uFE0F {product['name'] or product['url']}: {res.error[:250]}{tip}",
     )
     return {"ok": False, "error": res.error}
 

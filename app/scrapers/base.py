@@ -23,15 +23,20 @@ EXTRACTION_SCHEMA = {
         "availability": {"type": "string"},
         "unit_price": {"type": "string"},
     },
-    "required": ["product_name", "price"],
+    "required": ["product_name"],
 }
 
 EXTRACTION_PROMPT = (
-    "Extract the current selling price of the main product shown on this page. "
-    "Use the displayed sales price including VAT, not a crossed-out list/UVP price. "
-    "Return currency as ISO code (EUR, USD, ...). "
-    "In availability describe the stock status (e.g. 'in stock', 'out of stock'). "
-    "unit_price is the displayed price per unit like '12,67 EUR/m2' if shown, else empty."
+    "Find the current selling price of the MAIN product on this shop page. "
+    "Look for price elements near the product title or the add-to-cart button, "
+    "e.g. elements with class/id containing 'price', aria-labels like 'Preis', "
+    "or meta tags like product:price:amount. "
+    "German shops format prices as '1.299,99' or '701,00'; English as '1,299.99'. "
+    "Return the CURRENT purchase price including VAT - NOT a crossed-out old/UVP/statt "
+    "price and NOT prices of related products or recommendations. "
+    "If no price is visible at all, set price to null. "
+    "currency: ISO code (EUR, USD...). availability: stock status ('in stock', 'out of stock'). "
+    "unit_price: the displayed per-unit price like '12,67 EUR/m2' or 'EUR 3,49/Stk' if shown, else empty."
 )
 
 
