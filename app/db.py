@@ -65,6 +65,11 @@ def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with get_db() as db:
         db.executescript(SCHEMA)
+        cols = {r["name"] for r in db.execute("PRAGMA table_info(products)")}
+        if "interval_hours" not in cols:
+            db.execute(
+                "ALTER TABLE products ADD COLUMN interval_hours INTEGER NOT NULL DEFAULT 24"
+            )
 
 
 def list_products() -> list[dict]:
@@ -94,7 +99,7 @@ def create_product(url: str, name: str = "", retailer: str = "") -> int:
 
 
 def update_product(pid: int, **fields) -> None:
-    allowed = {"name", "active"}
+    allowed = {"name", "active", "interval_hours"}
     keys = [k for k in fields if k in allowed and fields[k] is not None]
     if not keys:
         return
@@ -129,6 +134,17 @@ def previous_price(pid: int) -> dict | None:
             (pid,),
         ).fetchone()
         return dict(row) if row else None
+
+
+def due_products() -> list[dict]:
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT * FROM products WHERE active=1 AND ("
+            "last_checked IS NULL OR "
+            "last_checked <= datetime('now', '-' || interval_hours || ' hours')) "
+            "ORDER BY last_checked"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def insert_history(

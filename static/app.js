@@ -69,7 +69,7 @@ async function loadStatus() {
   if (s.demo) badges.push('<span class="badge demo">Demo-Modus</span>');
   document.getElementById("provider-badges").innerHTML = badges.join("");
   document.getElementById("next-run").textContent =
-    `Nächste automatische Prüfung: ${fmtTime(s.next_run)} (${s.schedule} Uhr)`;
+    `Auto-Prüfung: alle ${s.check_interval_minutes} Min · nächster Lauf: ${fmtTime(s.next_run)}`;
   document.getElementById("demo-banner").style.display = s.demo ? "flex" : "none";
   renderStats(s.stats);
 }
@@ -86,6 +86,49 @@ function renderStats(stats) {
     .join("");
 }
 
+function fmtInterval(h) {
+  if (h % 24 === 0) return `${h / 24} Tag${h / 24 > 1 ? "e" : ""}`;
+  return `${h} Std`;
+}
+
+const INTERVAL_CHOICES = [1, 3, 6, 12, 24, 48, 168];
+
+function intervalSelectHtml(current) {
+  const choices = INTERVAL_CHOICES.includes(current)
+    ? INTERVAL_CHOICES
+    : [...INTERVAL_CHOICES, current].sort((a, b) => a - b);
+  return choices
+    .map((h) => `<option value="${h}" ${h === current ? "selected" : ""}>${fmtInterval(h)}</option>`)
+    .join("");
+}
+
+async function setIntervalHours(ev, id, sel) {
+  if (ev) ev.stopPropagation();
+  try {
+    await api(`/api/products/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ interval_hours: Number(sel.value) }),
+    });
+    toast(`Prüfintervall gesetzt auf ${fmtInterval(Number(sel.value))}.`, "success");
+    refreshAll();
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+}
+
+async function saveDetailInterval(val) {
+  if (!currentDetailId) return;
+  try {
+    await api(`/api/products/${currentDetailId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ interval_hours: Number(val) }),
+    });
+    toast(`Prüfintervall gesetzt auf ${fmtInterval(Number(val))}.`, "success");
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+}
+
 function renderProducts(products) {
   const tbody = document.getElementById("products-body");
   if (!products.length) {
@@ -95,12 +138,14 @@ function renderProducts(products) {
   tbody.innerHTML = products
     .map((p) => {
       const name = p.name || p.url;
+      const ih = p.interval_hours || 24;
       return `<tr data-id="${p.id}">
         <td class="pname" title="${p.url}"><a href="${p.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${name}</a><span class="src-tag">${p.last_source || "?"}</span></td>
         <td class="muted">${p.retailer || "–"}</td>
         <td class="num"><span class="price">${p.last_price != null ? fmtEUR.format(p.last_price) : "–"}</span>${availHtml(p.last_availability) !== "<span class=\"muted\">–</span>" ? "<br>" + availHtml(p.last_availability) : ""}</td>
         <td class="num">${changeHtml(p.change_abs, p.change_pct)}</td>
         <td>${sparkline(p.sparkline)}</td>
+        <td onclick="event.stopPropagation()"><select class="interval-select" onchange="setIntervalHours(event, ${p.id}, this)" title="Nächste geplante Prüfung: ${fmtTime(p.next_check_at)}">${intervalSelectHtml(ih)}</select></td>
         <td class="muted">${fmtTime(p.last_checked)}</td>
         <td class="row-actions">
           <button class="btn" onclick="checkProduct(event, ${p.id})" title="Jetzt prüfen">⟳</button>
@@ -301,10 +346,12 @@ async function openDetail(id) {
     ["Min 30 Tage", p.min_30d != null ? fmtEUR.format(p.min_30d) : "–"],
     ["Max 30 Tage", p.max_30d != null ? fmtEUR.format(p.max_30d) : "–"],
     ["Änderung", p.change_abs != null ? `${p.change_abs > 0 ? "+" : ""}${p.change_abs.toFixed(2)} (${p.change_pct}%)` : "–"],
+    ["Nächste Prüfung", p.next_check_at ? fmtTime(p.next_check_at) : "bei nächstem Lauf"],
   ];
   document.getElementById("detail-stats").innerHTML = stats
     .map(([l, v]) => `<div><span>${l}</span><b>${v}</b></div>`)
     .join("");
+  document.getElementById("detail-interval").innerHTML = intervalSelectHtml(p.interval_hours || 24);
 
   const ctx = document.getElementById("detail-chart");
   if (detailChart) detailChart.destroy();

@@ -114,6 +114,17 @@ async def check_product(product: dict) -> dict:
 
 async def check_all() -> dict:
     products = [p for p in db.list_products() if p["active"]]
+    return await _check_list(products)
+
+
+async def check_due_products() -> dict:
+    due = db.due_products()
+    if not due:
+        return {"checked": 0, "ok": 0, "failed": 0}
+    return await _check_list(due)
+
+
+async def _check_list(products: list[dict]) -> dict:
     results = await asyncio.gather(
         *(check_product(p) for p in products), return_exceptions=True
     )

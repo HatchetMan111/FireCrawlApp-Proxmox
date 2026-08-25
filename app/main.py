@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import db, demo, scheduler
-from .config import CHECK_SCHEDULE
+from .config import CHECK_INTERVAL_MINUTES
 from .services import check_all, check_product, normalize_url, retailer_from_url
 from .settings_store import demo_active, status as settings_status
 
@@ -32,11 +32,19 @@ app = FastAPI(title="FireCrawlApp", lifespan=lifespan)
 class ProductCreate(BaseModel):
     url: str
     name: str = ""
+    interval_hours: int | None = None
 
 
 class ProductUpdate(BaseModel):
     name: str | None = None
     active: bool | None = None
+    interval_hours: int | None = None
+
+
+def _clamp_interval(hours: int | None) -> int | None:
+    if hours is None:
+        return None
+    return min(max(int(hours), 1), 24 * 30)
 
 
 class SettingsUpdate(BaseModel):
@@ -58,7 +66,7 @@ def status():
         "firecrawl": ss["firecrawl"]["configured"],
         "tavily": ss["tavily"]["configured"],
         "demo": ss["demo_active"],
-        "schedule": CHECK_SCHEDULE,
+        "check_interval_minutes": CHECK_INTERVAL_MINUTES,
         "next_run": scheduler.next_run(),
         "stats": db.stats(),
     }
@@ -111,6 +119,12 @@ def _product_payload(p: dict) -> dict:
         change_abs = round(p["last_price"] - prev["price"], 2)
         change_pct = round(change_abs / prev["price"] * 100, 1)
     prices = [h["price"] for h in hist]
+    next_check = None
+    if p["last_checked"]:
+        from datetime import datetime, timedelta
+
+        lc = datetime.strptime(p["last_checked"], "%Y-%m-%d %H:%M:%S")
+        next_check = (lc + timedelta(hours=p.get("interval_hours") or 24)).isoformat()
     return {
         **p,
         "active": bool(p["active"]),
@@ -118,6 +132,7 @@ def _product_payload(p: dict) -> dict:
         "change_pct": change_pct,
         "min_30d": min(prices) if prices else None,
         "max_30d": max(prices) if prices else None,
+        "next_check_at": next_check,
         "sparkline": [{"t": h["checked_at"], "p": h["price"]} for h in hist[-40:]],
     }
 
@@ -142,6 +157,9 @@ async def add_product(body: ProductCreate):
         _spawn(check_product(product))
         return {"replaced_demo": True, **_product_payload(product)}
     pid = db.create_product(url, body.name.strip(), retailer_from_url(url))
+    interval = _clamp_interval(body.interval_hours)
+    if interval is not None:
+        db.update_product(pid, interval_hours=interval)
     product = db.get_product(pid)
     _spawn(check_product(product))
     return _product_payload(product)
@@ -151,8 +169,13 @@ async def add_product(body: ProductCreate):
 def patch_product(pid: int, body: ProductUpdate):
     if not db.get_product(pid):
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden")
-    db.update_product(pid, name=body.name, active=body.active)
-    return db.get_product(pid)
+    db.update_product(
+        pid,
+        name=body.name,
+        active=body.active,
+        interval_hours=_clamp_interval(body.interval_hours),
+    )
+    return _product_payload(db.get_product(pid))
 
 
 @app.delete("/api/products/{pid}")

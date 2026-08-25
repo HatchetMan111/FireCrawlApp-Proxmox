@@ -64,12 +64,20 @@ Der Einzeiler kann beliebig oft erneut ausgeführt werden:
 Demo-Modus schaltet sich automatisch ab (sofern auf „auto“), und alle Produkte werden
 sofort mit den echten APIs geprüft.
 
+### Prüfintervall pro Produkt
+
+Jedes Produkt hat ein eigenes **Prüfintervall** (Dropdown direkt in der Tabelle oder im
+Detail-Dialog): 1 Std / 3 Std / 6 Std / 12 Std / 1 Tag / 2 Tage / 7 Tage. Der Scheduler läuft
+alle `CHECK_INTERVAL_MINUTES` (Standard 15 Min, nur DB-Scan, keine API-Kosten) und prüft
+ausschließlich Produkte, deren Intervall abgelaufen ist — so werden keine unnötigen
+API-Calls verschwendet. „⟳ Jetzt prüfen“ prüft unabhängig vom Intervall sofort.
+
 Alterniv via Datei `/opt/firecrawlapp/.env`:
 
 ```ini
 FIRECRAWL_API_KEY=fc-...        # https://firecrawl.dev
 TAVILY_API_KEY=tvly-...         # https://tavily.com (optional, Fallback)
-CHECK_SCHEDULE=08:00            # tägliche Prüfzeit
+CHECK_INTERVAL_MINUTES=15       # Scheduler-Loop (prüft nur fällige Produkte)
 DEMO_MODE=auto                  # auto|on|off (auto = Demo ohne Keys)
 ```
 

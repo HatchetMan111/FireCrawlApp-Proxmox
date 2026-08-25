@@ -1,29 +1,25 @@
 import asyncio
-import os
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
-from .config import CHECK_SCHEDULE, TIMEZONE
-from .services import check_all
+from .config import CHECK_INTERVAL_MINUTES, TIMEZONE
+from .services import check_due_products
 
 scheduler = BackgroundScheduler(timezone=TIMEZONE)
 
 
-def run_check_all() -> None:
-    asyncio.run(check_all())
+def run_due_checks() -> None:
+    asyncio.run(check_due_products())
 
 
 def start() -> None:
-    if scheduler.get_job("daily_price_check"):
+    if scheduler.get_job("price_check_loop"):
         return
-    parts = CHECK_SCHEDULE.split(":")
-    hour = int(parts[0]) if parts and parts[0].isdigit() else 8
-    minute = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
     scheduler.add_job(
-        run_check_all,
-        CronTrigger(hour=hour, minute=minute, timezone=os.getenv("TZ", TIMEZONE)),
-        id="daily_price_check",
+        run_due_checks,
+        IntervalTrigger(minutes=CHECK_INTERVAL_MINUTES, timezone=TIMEZONE),
+        id="price_check_loop",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
@@ -32,7 +28,7 @@ def start() -> None:
 
 
 def next_run() -> str | None:
-    job = scheduler.get_job("daily_price_check")
+    job = scheduler.get_job("price_check_loop")
     if job and job.next_run_time:
         return job.next_run_time.isoformat()
     return None

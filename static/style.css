@@ -181,3 +181,14 @@ dialog::backdrop { background: rgba(0,0,0,.65); }
 
 .spin { display: inline-block; animation: rot 1s linear infinite; }
 @keyframes rot { to { transform: rotate(360deg); } }
+
+.interval-select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 6px; font-size: 12px; cursor: pointer;
+}
+.interval-select:hover { border-color: var(--accent); }
+.detail-interval-label { font-size: 13px; color: var(--muted); float: left; margin-top: 8px; }
+.detail-interval-label select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font-size: 12px; margin-left: 6px;
+}
