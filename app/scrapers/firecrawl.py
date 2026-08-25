@@ -1,10 +1,9 @@
 import httpx
 
-from ..config import FIRECRAWL_API_KEY, FIRECRAWL_API_URL
 from .base import EXTRACTION_PROMPT, EXTRACTION_SCHEMA, ScrapeResult, parse_price_value
 
 
-async def fetch(url: str) -> ScrapeResult:
+async def fetch(url: str, api_key: str, api_url: str = "https://api.firecrawl.dev/v1") -> ScrapeResult:
     res = ScrapeResult(source="firecrawl")
     payload = {
         "url": url,
@@ -12,11 +11,11 @@ async def fetch(url: str) -> ScrapeResult:
         "extract": {"prompt": EXTRACTION_PROMPT, "schema": EXTRACTION_SCHEMA},
     }
     headers = {
-        "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=120) as client:
-        r = await client.post(f"{FIRECRAWL_API_URL}/scrape", json=payload, headers=headers)
+        r = await client.post(f"{api_url.rstrip('/')}/scrape", json=payload, headers=headers)
     if r.status_code != 200:
         res.error = f"HTTP {r.status_code}: {r.text[:300]}"
         return res

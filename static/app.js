@@ -18,7 +18,7 @@ async function api(path, opts = {}) {
   });
   if (!res.ok) {
     let detail = res.statusText;
-    try { detail = (await res.json()).detail || detail; } catch {}
+    try { detail = (await res.json()).detail || detail; } catch (e) { /* ignore */ }
     throw new Error(detail);
   }
   return res.json();
@@ -70,9 +70,7 @@ async function loadStatus() {
   document.getElementById("provider-badges").innerHTML = badges.join("");
   document.getElementById("next-run").textContent =
     `Nächste automatische Prüfung: ${fmtTime(s.next_run)} (${s.schedule} Uhr)`;
-  document.getElementById("demo-hint").textContent = s.demo
-    ? "Demo-Modus: Ohne API-Keys werden simulierte Preise erzeugt. Firecrawl- und/oder Tavily-Key in /opt/firecrawlapp/.env eintragen und Dienst neu starten."
-    : "";
+  document.getElementById("demo-banner").style.display = s.demo ? "flex" : "none";
   renderStats(s.stats);
 }
 
@@ -186,17 +184,100 @@ document.getElementById("add-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const urlEl = document.getElementById("add-url");
   const nameEl = document.getElementById("add-name");
+  let url = urlEl.value.trim();
+  if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
   try {
-    await api("/api/products", {
+    const res = await api("/api/products", {
       method: "POST",
-      body: JSON.stringify({ url: urlEl.value.trim(), name: nameEl.value.trim() }),
+      body: JSON.stringify({ url, name: nameEl.value.trim() }),
     });
-    toast("Produkt hinzugefügt – erste Prüfung läuft …", "success");
+    toast(
+      res.replaced_demo
+        ? "Demo-Eintrag übernommen – erste echte Prüfung läuft …"
+        : "Produkt hinzugefügt – erste Prüfung läuft …",
+      "success"
+    );
     urlEl.value = "";
     nameEl.value = "";
     refreshAll();
     setTimeout(refreshAll, 4000);
     setTimeout(refreshAll, 15000);
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+});
+
+async function openSettings() {
+  try {
+    const s = await api("/api/settings");
+    document.getElementById("set-firecrawl").value = "";
+    document.getElementById("set-tavily").value = "";
+    document.getElementById("set-firecrawl-state").textContent = s.firecrawl.configured
+      ? `(gesetzt: ${s.firecrawl.masked}${s.firecrawl.from_env ? ", aus .env" : ""})`
+      : "(nicht gesetzt)";
+    document.getElementById("set-tavily-state").textContent = s.tavily.configured
+      ? `(gesetzt: ${s.tavily.masked}${s.tavily.from_env ? ", aus .env" : ""})`
+      : "(nicht gesetzt)";
+    document.getElementById("set-demo-mode").value = s.demo_mode;
+    document.getElementById("settings-modal").showModal();
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+}
+
+document.getElementById("settings-btn").addEventListener("click", openSettings);
+document.getElementById("banner-settings-btn").addEventListener("click", openSettings);
+document.getElementById("settings-close").addEventListener("click", () => {
+  document.getElementById("settings-modal").close();
+});
+
+document.getElementById("settings-save").addEventListener("click", async () => {
+  const body = {
+    demo_mode: document.getElementById("set-demo-mode").value,
+  };
+  const fc = document.getElementById("set-firecrawl").value.trim();
+  const tv = document.getElementById("set-tavily").value.trim();
+  if (fc) body.firecrawl_api_key = fc;
+  if (tv) body.tavily_api_key = tv;
+  try {
+    const s = await api("/api/settings", { method: "POST", body: JSON.stringify(body) });
+    document.getElementById("settings-modal").close();
+    toast("Einstellungen gespeichert", "success");
+    refreshAll();
+    if (!s.demo_active) {
+      toast("Demo-Modus inaktiv – prüfe alle Produkte mit den echten APIs …");
+      await api("/api/check-all", { method: "POST" });
+      setTimeout(refreshAll, 5000);
+      setTimeout(refreshAll, 20000);
+    }
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+});
+
+document.getElementById("demo-exit-btn").addEventListener("click", async () => {
+  try {
+    const s = await api("/api/demo/exit", { method: "POST" });
+    toast("Demo-Modus beendet.", "success");
+    refreshAll();
+    if (!s.firecrawl.configured && !s.tavily.configured) {
+      toast("Achtung: Ohne API-Keys schlagen echte Prüfungen fehl.", "error");
+      openSettings();
+    } else {
+      await api("/api/check-all", { method: "POST" });
+      setTimeout(refreshAll, 5000);
+    }
+  } catch (err) {
+    toast(`Fehler: ${err.message}`, "error");
+  }
+});
+
+document.getElementById("demo-clear-btn").addEventListener("click", async () => {
+  if (!confirm("Alle Demo-Produkte (simulierte Preise) löschen?")) return;
+  try {
+    const r = await api("/api/demo/clear-products", { method: "POST" });
+    toast(`${r.removed} Demo-Produkte entfernt.`, "success");
+    refreshAll();
   } catch (err) {
     toast(`Fehler: ${err.message}`, "error");
   }

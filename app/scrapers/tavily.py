@@ -2,7 +2,6 @@ import re
 
 import httpx
 
-from ..config import TAVILY_API_KEY, TAVILY_API_URL
 from .base import ScrapeResult
 
 PRICE_PATTERNS = [
@@ -86,15 +85,15 @@ def detect_availability(text: str) -> str:
     return ""
 
 
-async def fetch(url: str) -> ScrapeResult:
+async def fetch(url: str, api_key: str, api_url: str = "https://api.tavily.com") -> ScrapeResult:
     res = ScrapeResult(source="tavily")
     headers = {
-        "Authorization": f"Bearer {TAVILY_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {"urls": [url], "extract_depth": "advanced"}
     async with httpx.AsyncClient(timeout=90) as client:
-        r = await client.post(f"{TAVILY_API_URL}/extract", json=payload, headers=headers)
+        r = await client.post(f"{api_url.rstrip('/')}/extract", json=payload, headers=headers)
     if r.status_code != 200:
         res.error = f"HTTP {r.status_code}: {r.text[:300]}"
         return res

@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS events (
   message TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_history_product ON price_history(product_id, checked_at);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
 """
@@ -195,6 +199,39 @@ def list_events(limit: int = 50) -> list[dict]:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with get_db() as db:
+        row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return row["value"] if row and row["value"] != "" else default
+
+
+def set_setting(key: str, value: str | None) -> None:
+    with get_db() as db:
+        if value is None or value == "":
+            db.execute("DELETE FROM settings WHERE key=?", (key,))
+        else:
+            db.execute(
+                "INSERT INTO settings(key,value) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
+
+
+def delete_history(pid: int) -> None:
+    with get_db() as db:
+        db.execute("DELETE FROM price_history WHERE product_id=?", (pid,))
+
+
+def reset_product(pid: int, name: str = "") -> None:
+    with get_db() as db:
+        if name:
+            db.execute("UPDATE products SET name=?, last_price=NULL, last_availability='', "
+                       "last_source='', last_checked=NULL WHERE id=?", (name, pid))
+        else:
+            db.execute("UPDATE products SET last_price=NULL, last_availability='', "
+                       "last_source='', last_checked=NULL WHERE id=?", (pid,))
 
 
 def stats() -> dict:

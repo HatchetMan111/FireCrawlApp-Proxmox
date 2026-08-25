@@ -4,9 +4,10 @@ import random
 from urllib.parse import urlparse
 
 from . import db
-from .config import FIRECRAWL_API_KEY, TAVILY_API_KEY, demo_enabled
+from .config import FIRECRAWL_API_URL, TAVILY_API_URL
 from .scrapers import firecrawl, tavily
 from .scrapers.base import ScrapeResult
+from .settings_store import demo_active, firecrawl_key, tavily_key
 
 SEM = asyncio.Semaphore(5)
 
@@ -16,19 +17,28 @@ def retailer_from_url(url: str) -> str:
     return host.split(".")[0].capitalize() if host else ""
 
 
+def normalize_url(raw: str) -> str:
+    url = (raw or "").strip()
+    if url and not urlparse(url).scheme:
+        url = "https://" + url
+    return url.rstrip("/")
+
+
 async def scrape_url(url: str) -> ScrapeResult:
     errors = []
-    if FIRECRAWL_API_KEY:
+    fc_key = firecrawl_key()
+    if fc_key:
         try:
-            res = await firecrawl.fetch(url)
+            res = await firecrawl.fetch(url, api_key=fc_key, api_url=FIRECRAWL_API_URL)
             if res.ok:
                 return res
             errors.append(f"firecrawl: {res.error}")
         except Exception as exc:
             errors.append(f"firecrawl: {type(exc).__name__}: {exc}")
-    if TAVILY_API_KEY:
+    tv_key = tavily_key()
+    if tv_key:
         try:
-            res = await tavily.fetch(url)
+            res = await tavily.fetch(url, api_key=tv_key, api_url=TAVILY_API_URL)
             if res.ok:
                 return res
             errors.append(f"tavily: {res.error}")
@@ -63,7 +73,7 @@ def simulate(product: dict) -> ScrapeResult:
 async def check_product(product: dict) -> dict:
     async with SEM:
         res = await scrape_url(product["url"])
-    if not res.ok and demo_enabled():
+    if not res.ok and demo_active():
         res = simulate(product)
     prev = db.previous_price(product["id"])
     if res.ok:

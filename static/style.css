@@ -46,6 +46,27 @@ h1 { font-size: 22px; letter-spacing: .3px; }
 .badge.demo { color: var(--amber); border-color: var(--amber); }
 .next-run { font-size: 11px; color: var(--muted); }
 
+.demo-banner {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  flex-wrap: wrap; background: rgba(210,153,34,.1); border: 1px solid var(--amber);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px;
+}
+.demo-actions { display: flex; gap: 8px; }
+
+.settings-grid {
+  display: grid; grid-template-columns: 200px 1fr; gap: 10px 14px;
+  align-items: center; margin-top: 14px;
+}
+@media (max-width: 640px) { .settings-grid { grid-template-columns: 1fr; } }
+.settings-grid label { font-size: 13px; color: var(--text); }
+.settings-grid input, .settings-grid select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 9px 12px; font-size: 13px; outline: none; width: 100%;
+}
+.settings-grid input:focus, .settings-grid select:focus { border-color: var(--accent); }
+.key-state { color: var(--muted); font-size: 11px; font-weight: normal; }
+.settings-actions { display: flex; justify-content: space-between; gap: 8px; }
+
 .add-bar {
   display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
 }

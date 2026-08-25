@@ -19,8 +19,17 @@
     <div class="header-right">
       <div class="badges" id="provider-badges"></div>
       <div class="next-run" id="next-run"></div>
+      <button class="btn" id="settings-btn">⚙️ Einstellungen</button>
     </div>
   </header>
+
+  <div id="demo-banner" class="demo-banner" style="display:none">
+    <span>🧪 <b>Demo-Modus aktiv</b> – Preise sind simuliert. Hinterlege deine Firecrawl-/Tavily-Keys, um echte Preise zu tracken.</span>
+    <span class="demo-actions">
+      <button class="btn primary" id="banner-settings-btn">API-Keys hinterlegen</button>
+      <button class="btn danger" id="demo-exit-btn">Demo beenden</button>
+    </span>
+  </div>
 
   <section class="add-bar">
     <form id="add-form">
@@ -63,8 +72,43 @@
   </main>
 
   <footer>
-    <span id="demo-hint"></span>
+    <span>FireCrawlApp – lokale Preis-Beobachtung · Firecrawl/Tavily · Demo-Modus schaltet sich automatisch aus, sobald ein Key hinterlegt ist.</span>
   </footer>
+
+  <dialog id="settings-modal">
+    <div class="modal-head">
+      <div>
+        <h3>⚙️ Einstellungen</h3>
+        <span class="muted">Keys werden nur lokal im Container (SQLite) gespeichert.</span>
+      </div>
+      <button class="btn icon" id="settings-close">✕</button>
+    </div>
+
+    <div class="settings-grid">
+      <label for="set-firecrawl">Firecrawl API-Key <span id="set-firecrawl-state" class="key-state"></span></label>
+      <input type="password" id="set-firecrawl" placeholder="fc-…" autocomplete="off">
+
+      <label for="set-tavily">Tavily API-Key <span id="set-tavily-state" class="key-state"></span></label>
+      <input type="password" id="set-tavily" placeholder="tvly-…" autocomplete="off">
+      <span class="muted" style="grid-column:1/-1">Leer lassen = Key entfernen bzw. Env-Fallback nutzen. Mindestens ein Key beendet den Demo-Modus (bei Demo-Modus „auto“).</span>
+
+      <label for="set-demo-mode">Demo-Modus</label>
+      <select id="set-demo-mode">
+        <option value="auto">auto – Demo solange keine Keys gesetzt</option>
+        <option value="on">an – immer simulieren</option>
+        <option value="off">aus – echte API-Aufrufe (empfohlen mit Keys)</option>
+      </select>
+    </div>
+
+    <div class="modal-actions settings-actions">
+      <button class="btn danger" id="demo-clear-btn">🧹 Demo-Produkte entfernen</button>
+      <button class="btn primary" id="settings-save">💾 Speichern &amp; prüfen</button>
+    </div>
+    <p class="muted" style="margin-top:10px">
+      Keys: <a href="https://www.firecrawl.dev/" target="_blank" rel="noopener">firecrawl.dev</a> ·
+      <a href="https://www.tavily.com/" target="_blank" rel="noopener">tavily.com</a>
+    </p>
+  </dialog>
 
   <dialog id="detail-modal">
     <div class="modal-head">

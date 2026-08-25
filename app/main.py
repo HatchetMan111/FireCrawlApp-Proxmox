@@ -4,18 +4,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 from . import db, demo, scheduler
-from .config import (
-    CHECK_SCHEDULE,
-    FIRECRAWL_API_KEY,
-    FIRECRAWL_API_URL,
-    TAVILY_API_KEY,
-    TAVILY_API_URL,
-    demo_enabled,
-)
-from .services import check_all, check_product, retailer_from_url
+from .config import CHECK_SCHEDULE
+from .services import check_all, check_product, normalize_url, retailer_from_url
+from .settings_store import demo_active, status as settings_status
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -25,7 +19,7 @@ _background_tasks: set[asyncio.Task] = set()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
-    if demo_enabled():
+    if demo_active():
         demo.seed_if_empty()
     scheduler.start()
     yield
@@ -36,13 +30,19 @@ app = FastAPI(title="FireCrawlApp", lifespan=lifespan)
 
 
 class ProductCreate(BaseModel):
-    url: HttpUrl
+    url: str
     name: str = ""
 
 
 class ProductUpdate(BaseModel):
     name: str | None = None
     active: bool | None = None
+
+
+class SettingsUpdate(BaseModel):
+    firecrawl_api_key: str | None = None
+    tavily_api_key: str | None = None
+    demo_mode: str | None = None
 
 
 def _spawn(coro) -> None:
@@ -53,16 +53,50 @@ def _spawn(coro) -> None:
 
 @app.get("/api/status")
 def status():
+    ss = settings_status()
     return {
-        "firecrawl": bool(FIRECRAWL_API_KEY),
-        "tavily": bool(TAVILY_API_KEY),
-        "demo": demo_enabled(),
-        "firecrawl_url": FIRECRAWL_API_URL,
-        "tavily_url": TAVILY_API_URL,
+        "firecrawl": ss["firecrawl"]["configured"],
+        "tavily": ss["tavily"]["configured"],
+        "demo": ss["demo_active"],
         "schedule": CHECK_SCHEDULE,
         "next_run": scheduler.next_run(),
         "stats": db.stats(),
     }
+
+
+@app.get("/api/settings")
+def get_settings():
+    return settings_status()
+
+
+@app.post("/api/settings")
+async def update_settings(body: SettingsUpdate):
+    if body.firecrawl_api_key is not None:
+        db.set_setting("firecrawl_api_key", body.firecrawl_api_key.strip() or None)
+    if body.tavily_api_key is not None:
+        db.set_setting("tavily_api_key", body.tavily_api_key.strip() or None)
+    if body.demo_mode is not None:
+        if body.demo_mode not in ("auto", "on", "off"):
+            raise HTTPException(status_code=400, detail="demo_mode muss auto|on|off sein")
+        db.set_setting("demo_mode", body.demo_mode or None)
+    return settings_status()
+
+
+@app.post("/api/demo/exit")
+async def demo_exit():
+    db.set_setting("demo_mode", "off")
+    return {"ok": True, **settings_status()}
+
+
+@app.post("/api/demo/clear-products")
+async def demo_clear_products():
+    removed = 0
+    for p in db.list_products():
+        if p["last_source"] == "demo":
+            db.delete_product(p["id"])
+            removed += 1
+    db.add_event(None, "info", f"\U0001F9F9 {removed} Demo-Produkte entfernt.")
+    return {"removed": removed}
 
 
 def _product_payload(p: dict) -> dict:
@@ -95,10 +129,18 @@ def list_products():
 
 @app.post("/api/products", status_code=201)
 async def add_product(body: ProductCreate):
-    url = str(body.url).rstrip("/")
+    url = normalize_url(body.url)
+    if not url or not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Bitte eine gültige Produkt-URL angeben")
     existing = db.get_product_by_url(url)
     if existing:
-        raise HTTPException(status_code=409, detail="URL wird bereits getrackt")
+        if existing["last_source"] != "demo":
+            raise HTTPException(status_code=409, detail="URL wird bereits getrackt")
+        db.reset_product(existing["id"], body.name.strip())
+        db.delete_history(existing["id"])
+        product = db.get_product(existing["id"])
+        _spawn(check_product(product))
+        return {"replaced_demo": True, **_product_payload(product)}
     pid = db.create_product(url, body.name.strip(), retailer_from_url(url))
     product = db.get_product(pid)
     _spawn(check_product(product))

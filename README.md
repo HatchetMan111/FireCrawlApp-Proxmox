@@ -59,7 +59,12 @@ Der Einzeiler kann beliebig oft erneut ausgeführt werden:
 
 ## 🔧 Konfiguration
 
-Im Container: `/opt/firecrawlapp/.env`
+**API-Keys direkt im Dashboard eingeben:** oben rechts **⚙️ Einstellungen** → Keys eintragen →
+*Speichern & prüfen*. Die Keys werden nur lokal im Container (SQLite) gespeichert, der
+Demo-Modus schaltet sich automatisch ab (sofern auf „auto“), und alle Produkte werden
+sofort mit den echten APIs geprüft.
+
+Alterniv via Datei `/opt/firecrawlapp/.env`:
 
 ```ini
 FIRECRAWL_API_KEY=fc-...        # https://firecrawl.dev
@@ -68,7 +73,12 @@ CHECK_SCHEDULE=08:00            # tägliche Prüfzeit
 DEMO_MODE=auto                  # auto|on|off (auto = Demo ohne Keys)
 ```
 
-Danach: `systemctl restart firecrawlapp`. **Ohne Keys läuft der Demo-Modus** mit simulierten Preisen.
+Danach: `systemctl restart firecrawlapp`. Im Demo-Modus (`auto` ohne Keys) werden simulierte
+Preise erzeugt; beenden entweder per Key-Eintrag oder über den Banner (**Demo beenden**).
+Demo-Produkte lassen sich im Einstellungs-Dialog per Klick entfernen. Existiert eine URL
+schon als Demo-Produkt, wird sie beim Hinzufügen automatisch übernommen und echt geprüft.
+
+Hinweis: In der DB gespeicherte Keys haben Vorrang vor der `.env`; Feld leer speichern = löschen.
 
 ## 🔄 Update & Deinstallation
 
